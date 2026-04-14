@@ -1,0 +1,135 @@
+import numpy as np
+import pickle
+import streamlit as st
+from streamlit_option_menu import option_menu
+import sqlite3
+
+# Database setup
+conn = sqlite3.connect('users.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS users (name TEXT, age TEXT, phone TEXT)''')
+conn.commit()
+
+# Load the saved models
+diabetes_model = pickle.load(open('C:/Users/DEVADOS/Downloads/Multiple Disease Prediction System/saved models/diabetes_model.sav', 'rb'))
+heart_disease_model = pickle.load(open('C:/Users/DEVADOS/Downloads/Multiple Disease Prediction System/saved models/heartdisease.sav', 'rb'))
+parkinsons_model = pickle.load(open('C:/Users/DEVADOS/Downloads/Multiple Disease Prediction System/saved models/parkinsons.sav', 'rb'))
+
+# Custom CSS for styling
+st.markdown("""
+    <style>
+    .main { background-color: #f0f2f6; }
+    h1 { color: #4CAF50; text-align: center; }
+    .stButton>button { background-color: #4CAF50; color: white; font-size: 18px; }
+    </style>
+""", unsafe_allow_html=True)
+
+# Navigation
+with st.sidebar:
+    selected = option_menu('Multiple Disease Prediction System',
+                           ['Login', 'About', 'BMI Tracker', 'Disease Prediction'],
+                           icons=['person', 'info-circle', 'calculator', 'stethoscope'],
+                           menu_icon='stethoscope',
+                           default_index=0)
+
+# Login Page
+if selected == "Login":
+    st.title("User Login")
+    name = st.text_input("Enter Your Name")
+    age = st.text_input("Enter Your Age")
+    phone = st.text_input("Enter Your Phone Number")
+    if st.button("Proceed"):
+        if name and age and phone:
+            st.session_state["logged_in"] = True
+            st.session_state["name"] = name
+            st.session_state["age"] = age
+            st.session_state["phone"] = phone
+            c.execute("INSERT INTO users (name, age, phone) VALUES (?, ?, ?)", (name, age, phone))
+            conn.commit()
+            st.success("Login successful! Navigate to the other pages using the sidebar.")
+        else:
+            st.error("Please fill in all details")
+
+# Restrict access if not logged in
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.warning("Please log in to access other sections.")
+    st.stop()
+
+# About Page
+elif selected == "About":
+    st.title("📖 About This Application")
+    st.write("This application is designed to predict diseases like Diabetes, Heart Disease, and Parkinson’s based on user input data using machine learning models.")
+
+# BMI Tracker
+elif selected == "BMI Tracker":
+    st.title("📊 BMI Calculator")
+    weight = st.text_input("Enter your weight in kg")
+    height = st.text_input("Enter your height in meters")
+    if st.button("Calculate BMI"):
+        if weight and height:
+            bmi = float(weight) / (float(height) ** 2)
+            st.success(f"Your BMI is {bmi:.2f}")
+            if bmi < 18.5:
+                st.warning("Underweight")
+            elif 18.5 <= bmi < 24.9:
+                st.success("Normal weight")
+            elif 25 <= bmi < 29.9:
+                st.warning("Overweight")
+            else:
+                st.error("Obese")
+
+# Disease Prediction Pages
+elif selected == "Disease Prediction":
+    disease_selected = option_menu("Disease Prediction", ['Diabetes', 'Heart Disease', "Parkinson's"],
+                                   icons=['capsule', 'heart', 'person-circle'],
+                                   default_index=0, orientation='horizontal')
+
+    # Diabetes Prediction
+    if disease_selected == 'Diabetes':
+        st.title('🩺 Diabetes Prediction using Machine Learning')
+        col1, col2, col3 = st.columns(3)
+        with col1: Pregnancies = st.text_input('Number of Pregnancies')
+        with col2: Glucose = st.text_input('Glucose Level')
+        with col3: BloodPressure = st.text_input('Blood Pressure')
+        with col1: SkinThickness = st.text_input('Skin Thickness')
+        with col2: Insulin = st.text_input('Insulin Level')
+        with col3: BMI = st.text_input('BMI')
+        with col1: DiabetesPedigreeFunction = st.text_input('Diabetes Pedigree Function')
+        with col2: Age = st.text_input('Age')
+        diab_diagnosis = ''
+        if st.button('Predict Diabetes'):
+            input_data = np.array([Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age]).reshape(1, -1)
+            diab_prediction = diabetes_model.predict(input_data)
+            diab_diagnosis = 'The person is NOT Diabetic!' if diab_prediction[0] == 0 else 'The person is Diabetic!'
+            st.success(diab_diagnosis)
+
+    # Heart Disease Prediction
+    elif disease_selected == 'Heart Disease':
+        st.title('❤️ Heart Disease Prediction using Machine Learning')
+        col1, col2, col3 = st.columns(3)
+        with col1: age = st.text_input('Age')
+        with col2: sex = st.text_input('Sex')
+        with col3: cp = st.text_input('Chest Pain Type')
+        with col1: trestbps = st.text_input('Resting Blood Pressure')
+        with col2: chol = st.text_input('Serum Cholestoral in mg/dl')
+        with col3: fbs = st.text_input('Fasting Blood Sugar > 120 mg/dl')
+        heart_diagnosis = ''
+        if st.button('Predict Heart Disease'):
+            user_input = [age, sex, cp, trestbps, chol, fbs]
+            heart_prediction = heart_disease_model.predict([user_input])
+            heart_diagnosis = 'The person does NOT have Heart Disease!' if heart_prediction[0] == 0 else 'The person HAS Heart Disease!'
+            st.success(heart_diagnosis)
+
+    # Parkinson's Prediction
+    elif disease_selected == "Parkinson's":
+        st.title("🧠 Parkinson's Disease Prediction using Machine Learning")
+        col1, col2, col3 = st.columns(3)
+        with col1: fo = st.text_input('MDVP:Fo(Hz)')
+        with col2: fhi = st.text_input('MDVP:Fhi(Hz)')
+        with col3: flo = st.text_input('MDVP:Flo(Hz)')
+        parkinsons_diagnosis = ''
+        if st.button("Predict Parkinson's"):
+            user_input = [fo, fhi, flo]
+            parkinsons_prediction = parkinsons_model.predict([user_input])
+            parkinsons_diagnosis = "The person does NOT have Parkinson's!" if parkinsons_prediction[0] == 0 else "The person HAS Parkinson's!"
+            st.success(parkinsons_diagnosis)
